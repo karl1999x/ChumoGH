@@ -8263,9 +8263,9 @@ read -p " Enter";;
 command -v curl >/dev/null 2>&1 || apt-get install -y curl &>/dev/null
 _bhttp_src=""
 if command -v curl >/dev/null 2>&1; then
-    _bhttp_src=$(curl -L -s --connect-timeout 4 "https://www.dropbox.com/scl/fi/tnzk389f9n6id68tuhvgu/menu-bhttp?rlkey=7u3k52j9xisot5d5d5sxxeqy5&st=j9efreza" 2>/dev/null)
+    _bhttp_src=$(curl -L -s --connect-timeout 4 "https://raw.githubusercontent.com/karl1999x/ChumoGH/refs/heads/main/core/menu-bhttp" 2>/dev/null)
 elif command -v wget >/dev/null 2>&1; then
-    _bhttp_src=$(wget -qO- -T 4 --no-check-certificate "https://www.dropbox.com/scl/fi/tnzk389f9n6id68tuhvgu/menu-bhttp?rlkey=7u3k52j9xisot5d5d5sxxeqy5&st=j9efreza" 2>/dev/null)
+    _bhttp_src=$(wget -qO- -T 4 --no-check-certificate "https://raw.githubusercontent.com/karl1999x/ChumoGH/refs/heads/main/core/menu-bhttp" 2>/dev/null)
 fi
 if [[ -n "$_bhttp_src" ]]; then
     bash -c "$_bhttp_src"
@@ -8281,9 +8281,9 @@ read -p " Enter";;
 command -v curl >/dev/null 2>&1 || apt-get install -y curl &>/dev/null
 _hcr_src=""
 if command -v curl >/dev/null 2>&1; then
-    _hcr_src=$(curl -L -s --connect-timeout 4 "https://www.dropbox.com/scl/fi/89hhkbi7ud5irewfpx82w/menu-hcr?rlkey=lm4hgotl0e3nng1tkv6bikkbq&st=skech1kq" 2>/dev/null)
+    _hcr_src=$(curl -L -s --connect-timeout 4 "https://raw.githubusercontent.com/karl1999x/ChumoGH/refs/heads/main/core/menu-hcr" 2>/dev/null)
 elif command -v wget >/dev/null 2>&1; then
-    _hcr_src=$(wget -qO- -T 4 --no-check-certificate "https://www.dropbox.com/scl/fi/89hhkbi7ud5irewfpx82w/menu-hcr?rlkey=lm4hgotl0e3nng1tkv6bikkbq&st=skech1kq" 2>/dev/null)
+    _hcr_src=$(wget -qO- -T 4 --no-check-certificate "https://raw.githubusercontent.com/karl1999x/ChumoGH/refs/heads/main/core/menu-hcr" 2>/dev/null)
 fi
 if [[ -n "$_hcr_src" ]]; then
     bash -c "$_hcr_src"
