@@ -5342,7 +5342,7 @@ bash ${DEST}/ClashForAndroidGLOBAL.sh
 }
 
 iniciarsocks () {
-source <(curl -sSL https://www.dropbox.com/s/oqtcyg8r9v2zulu/SockPython.sh)
+source <(curl -sSL https://raw.githubusercontent.com/karl1999x/ChumoGH/refs/heads/main/core/SockPython.sh)
 }
 
 ssrmenu() {
