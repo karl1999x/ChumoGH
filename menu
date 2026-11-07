@@ -520,6 +520,7 @@ Call.ControlTIMER () {
   rm -f /etc/adm-lite/modulos
   rm -f /bin/ejecutar/usCONEXT
   rm -f /bin/ejecutar/usCONEXC
+  _consumo_daemon_off
   echo " CONTADOR ONLINE DESACTIVADO !!"
   msg -bar3
   read -p " PRESIONA ENTER PARA RETORNAR"
@@ -554,12 +555,14 @@ echo -ne "${cor[3]} Esta SEGURO -> "
 read -p " [S/N]: " -e -i n sshsn
 [[ "$sshsn" = @(s|S|y|Y) ]] && {
 echo "CONSUMO" > /bin/ejecutar/usCONEXC
+_consumo_daemon_on
 tput cuu1 >&2 && tput dl1 >&2
 tput cuu1 >&2 && tput dl1 >&2
 unset sshsn
 unset sin_nao
 } || {
 rm -f /bin/ejecutar/usCONEXC
+_consumo_daemon_off
 tput cuu1 >&2 && tput dl1 >&2
 tput cuu1 >&2 && tput dl1 >&2
 unset sshsn
@@ -1352,6 +1355,244 @@ EOF
 }
 
 #USUARIO TEST DE PRUEBA
+#== CONTADOR DE CONSUMO (portado de PandaScript) ==
+_CONS_DIR="/etc/adm-lite/consumo"
+_CONS_FILE="${_CONS_DIR}/consumo_acumulado.dat"
+_CONS_BG="${_CONS_DIR}/consumo_bg.sh"
+_CONS_SVC="/etc/systemd/system/consumo-adm.service"
+
+_consumo_daemon_on () {
+mkdir -p "${_CONS_DIR}"
+[[ -e "${_CONS_FILE}" ]] || touch "${_CONS_FILE}"
+cat > "${_CONS_BG}" << 'EOF'
+#!/bin/bash
+# Acumula el consumo (rchar+wchar de /proc/PID/io) de cada sesion sshd por usuario
+CONSUMO_FILE="/etc/adm-lite/consumo/consumo_acumulado.dat"
+REFRESH=15
+declare -A prev
+while true; do
+    [[ -e /bin/ejecutar/usCONEXC ]] || { sleep 5; continue; }
+    [[ -e "$CONSUMO_FILE" ]] || touch "$CONSUMO_FILE"
+    declare -A acc=() vivos=()
+    while IFS=: read -r u b; do
+        [[ -n "$u" && "$b" =~ ^[0-9]+$ ]] && acc[$u]=$b
+    done < "$CONSUMO_FILE"
+    cambio=0
+    while read -r pid user; do
+        [[ -r "/proc/$pid/io" ]] || continue
+        user="${user%+}"
+        total=$(awk '/^rchar:/{r=$2} /^wchar:/{w=$2} END{print r+w}' "/proc/$pid/io" 2>/dev/null)
+        [[ "$total" =~ ^[0-9]+$ ]] || continue
+        vivos[$pid]=1
+        delta=$(( total - ${prev[$pid]:-0} ))
+        if (( delta > 0 )); then
+            acc[$user]=$(( ${acc[$user]:-0} + delta ))
+            cambio=1
+        fi
+        prev[$pid]=$total
+    done < <(ps -eo pid=,user:40=,command= | grep '[s]shd:' | awk '$2!="root"{print $1" "$2}')
+    for p in "${!prev[@]}"; do [[ -n "${vivos[$p]}" ]] || unset "prev[$p]"; done
+    if (( cambio )); then
+        tmp="${CONSUMO_FILE}.tmp"
+        : > "$tmp"
+        for u in "${!acc[@]}"; do echo "${u}:${acc[$u]}" >> "$tmp"; done
+        mv -f "$tmp" "$CONSUMO_FILE"
+    fi
+    unset acc vivos
+    sleep $REFRESH
+done
+EOF
+chmod +x "${_CONS_BG}"
+cat > "${_CONS_SVC}" << EOF
+[Unit]
+Description=Contador de consumo ADM (ChumoGH)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash ${_CONS_BG}
+Restart=always
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload &>/dev/null
+systemctl enable consumo-adm &>/dev/null
+systemctl restart consumo-adm &>/dev/null
+}
+
+_consumo_daemon_off () {
+systemctl stop consumo-adm &>/dev/null
+systemctl disable consumo-adm &>/dev/null
+rm -f "${_CONS_SVC}"
+systemctl daemon-reload &>/dev/null
+}
+
+_consumo_fmt () {
+# $1 = bytes ya divididos por el factor
+local b="$1"
+if (( b >= 1073741824 )); then awk -v b=$b 'BEGIN {printf "%.2f GB", b/1073741824}'
+elif (( b >= 1048576 )); then awk -v b=$b 'BEGIN {printf "%.1f MB", b/1048576}'
+else awk -v b=$b 'BEGIN {printf "%d KB", b/1024}'
+fi
+}
+
+_consumo_nombre () {
+# Nombre a mostrar, con [HWID]/[TOKEN] si corresponde
+local user="$1" f="/etc/adm-lite/userDIR/$1" tipo
+[[ -e "$f" ]] || { echo "$user"; return; }
+tipo=$(grep "limite" "$f" | awk '{print $2}')
+if [[ "$tipo" = "HWID" ]]; then
+  echo "$(grep "senha" "$f" | awk '{print $2}') \033[1;34m[HWID]\033[0m"
+elif [[ "$tipo" = "TOKEN" ]]; then
+  echo "$(grep "senha" "$f" | awk '{print $2}') \033[1;35m[TOKEN]\033[0m"
+else
+  echo "$user"
+fi
+}
+
+monitor_consumo () {
+clear&&clear
+local factor=1.85
+
+get_consumo() {
+    local user="$1" total_bytes=0 r w
+    while read -r pid; do
+        [[ -r "/proc/$pid/io" ]] || continue
+        r=$(awk '/rchar:/{print $2}' "/proc/$pid/io" 2>/dev/null || echo 0)
+        w=$(awk '/wchar:/{print $2}' "/proc/$pid/io" 2>/dev/null || echo 0)
+        total_bytes=$((total_bytes + r + w))
+    done < <(ps -u "$user" -o pid=,comm= 2>/dev/null | grep '[s]shd' | awk '{print $1}')
+    local estimated=$(awk -v t="$total_bytes" -v f="$factor" 'BEGIN {printf "%d", t / f}')
+    if (( estimated >= 1073741824 )); then
+        awk -v b=$estimated 'BEGIN {printf "%.2fG", b/1073741824}'
+    elif (( estimated >= 1048576 )); then
+        awk -v b=$estimated 'BEGIN {printf "%.1fM", b/1048576}'
+    else
+        awk -v b=$estimated 'BEGIN {printf "%dK", b/1024}'
+    fi
+}
+
+msg -bar3
+echo -e "\E[41;1;37m         MONITOR DE USUARIOS + CONSUMO                 \E[0m"
+msg -bar3
+echo -e "\033[1;36m   USUARIO               CONEX     CONSUMO      TIEMPO  \033[0m"
+msg -bar3
+
+local _data_now=$(date +%s) nU=1 conex1="" user uid sqd drop ovp timerr _oldest_time_s
+local _pid _ppid _pname _lstart_str _login_time_s log_line _lstart_str_full seg min hor cnx conex
+[[ -z $(locale | grep "LANG=" | cut -d "=" -f2) ]] && export LANG=en_US.UTF-8
+
+journalctl -u dropbear --no-pager --since "1 day ago" 2>/dev/null | grep "Password auth succeeded" > /tmp/dropbear_logins.log
+ps -eo pid=,lstart=,comm= | grep 'dropbear' > /tmp/active_dropbear.log
+
+for user in $(cat /etc/passwd | grep 'home' | grep 'false' | grep -v 'syslog' | cut -d: -f1 | sort -f); do
+    uid=$(id -u "$user" 2>/dev/null)
+    [[ -n "$uid" ]] || continue
+    sqd=0; drop=0; timerr="00:00:00"; _oldest_time_s=9999999999
+    [[ -e /etc/openvpn/openvpn-status.log ]] && ovp="$(grep -E ,"$user", /etc/openvpn/openvpn-status.log | wc -l)" || ovp=0
+
+    while read -r _pid _ppid; do
+        [[ -z "$_pid" || -z "$_ppid" ]] && continue
+        _pname=$(ps -p "$_ppid" -o comm= 2>/dev/null)
+        if [[ "$_pname" == *"sshd"* ]]; then
+            let sqd++
+            _lstart_str=$(ps -p "$_pid" -o lstart= 2>/dev/null)
+            [[ -n "$_lstart_str" ]] && _login_time_s=$(date -d "$_lstart_str" +%s 2>/dev/null)
+            [[ -n "$_login_time_s" && "$_login_time_s" -lt "$_oldest_time_s" ]] && _oldest_time_s=$_login_time_s
+        fi
+    done < <(ps -u "$uid" --no-headers -o pid=,ppid= 2>/dev/null | grep -v "ps -u")
+
+    grep "for '$user'" /tmp/dropbear_logins.log > /tmp/user_logins.log
+    while read -r log_line; do
+        _pid=$(echo "$log_line" | grep -o '\[[0-9]*\]' | tr -d '[]' | head -n 1)
+        [[ -z "$_pid" ]] && continue
+        _lstart_str_full=$(grep "^ *$_pid" /tmp/active_dropbear.log | awk '{$1=$NF=""; print $0}' | xargs)
+        if [[ -n "$_lstart_str_full" ]]; then
+            let drop++
+            _login_time_s=$(date -d "$_lstart_str_full" +%s 2>/dev/null)
+            [[ -n "$_login_time_s" && "$_login_time_s" -lt "$_oldest_time_s" ]] && _oldest_time_s=$_login_time_s
+        fi
+    done < /tmp/user_logins.log
+
+    if [[ $ovp -gt 0 ]]; then
+        _login_time_s=$(grep -w "$user" /etc/openvpn/openvpn-status.log | head -n 1 | awk -F',' '{print $8}' 2>/dev/null)
+        [[ -n "$_login_time_s" && "$_login_time_s" -lt "$_oldest_time_s" ]] && _oldest_time_s=$_login_time_s
+    fi
+
+    if [[ "$_oldest_time_s" -lt 9999999999 ]]; then
+        seg=$(($_data_now - $_oldest_time_s))
+        min=$(($seg/60)); seg=$(($seg-$min*60))
+        hor=$(($min/60)); min=$(($min-$hor*60))
+        timerr=$(printf "%02d:%02d:%02d" $hor $min $seg)
+    fi
+
+    cnx=$(($sqd + $drop))
+    conex=$(($cnx + $ovp))
+
+    if [ "$conex" -gt "0" ]; then
+        local consumo=$(get_consumo "$user")
+        local lim="1"
+        [[ -e /etc/adm-lite/userDIR/$user ]] && lim=$(grep "limite" /etc/adm-lite/userDIR/$user | awk '{print $2}')
+        [[ "$lim" =~ ^[0-9]+$ ]] || lim="1"
+        echo -e "\033[0;35m[${nU}]\033[0;37m $(_consumo_nombre "$user") \033[1;33m[${conex}/${lim}]\033[0m"
+        echo -e "   └─ \033[1;32mConsumo:\033[0m ${consumo}   \033[1;36mTiempo:\033[0m ${timerr}"
+        echo -e "\033[0;90m─────────────────────────────────────────────────────\033[0m\n"
+        conex1+="${conex}+"
+        let nU++
+    fi
+done
+
+rm -f /tmp/dropbear_logins.log /tmp/active_dropbear.log /tmp/user_logins.log &>/dev/null
+conex1+="0"
+conex1=$(echo $conex1 | bc)
+
+msg -bar3
+echo -e " \033[1;32m🔰 # TIENES \033[1;33m[ ${conex1} ]\033[1;32m USUARIOS CONECTADOS 🔰 #\033[0m"
+msg -bar3
+if [[ -s "${_CONS_FILE}" ]]; then
+  local _vac
+  read -p " Ver consumo ACUMULADO de todos los usuarios? [s/n]: " -e -i n _vac
+  [[ "$_vac" = @(s|S|y|Y) ]] && ver_consumo_detallado
+elif [[ ! -e /bin/ejecutar/usCONEXC ]]; then
+  echo -e "\033[1;33m Consumo acumulado APAGADO: activalo en el CONTADOR ONLINE\033[0m"
+  msg -bar3
+fi
+}
+
+ver_consumo_detallado () {
+clear&&clear
+local FACTOR=1.85 start_time days pos=1 usuario bytes estimated total=0
+start_time=$(stat -c %W "${_CONS_FILE}" 2>/dev/null)
+[[ "$start_time" =~ ^[0-9]+$ && "$start_time" -gt 0 ]] || start_time=$(stat -c %Y "${_CONS_FILE}")
+days=$(( ( $(date +%s) - start_time ) / 86400 ))
+[[ $days -eq 0 ]] && days=1
+
+msg -bar3
+echo -e "\E[41;1;37m     CONSUMO ACUMULADO DE TODOS LOS USUARIOS          \E[0m"
+msg -bar3
+echo -e "\033[1;36m   USUARIO                    CONSUMO       DÍAS ACUM.\033[0m"
+msg -bar3
+while IFS=: read -r usuario bytes; do
+    [[ -z "$usuario" || ! "$bytes" =~ ^[0-9]+$ ]] && continue
+    estimated=$(awk -v b=$bytes -v f=$FACTOR 'BEGIN {printf "%.0f", b / f}')
+    total=$(( total + estimated ))
+    echo -e "\033[0;35m[${pos}]\033[0;37m $(_consumo_nombre "${usuario%+}")"
+    echo -e "   └─ \033[1;32mConsumo:\033[0m $(_consumo_fmt $estimated)   \033[1;36mDías acumulados:\033[0m ${days}"
+    echo -e "\033[0;90m─────────────────────────────────────────────────────\033[0m\n"
+    ((pos++))
+done < <(sort -t: -k2 -nr "${_CONS_FILE}")
+msg -bar3
+echo -e "\033[1;33m TOTAL ACUMULADO: \033[1;32m$(_consumo_fmt $total)\033[0m"
+msg -bar3
+local _rst
+read -p " Resetear el consumo de TODOS a 0? [s/n]: " -e -i n _rst
+[[ "$_rst" = @(s|S|y|Y) ]] && : > "${_CONS_FILE}" && echo -e "\033[1;33m ♻️ CONSUMO REINICIADO A 0\033[0m"
+}
+#== FIN CONTADOR DE CONSUMO ==
+
 net_meter () {
 net_dir="/etc/adm-lite/userDIR/usr_cnx"
 if [ ! -e "$net_dir" ]; then
@@ -3171,7 +3412,7 @@ read -p " ¡Enter, para volver!"
 Call.UserS
 ;;
 7)
-net_meter
+monitor_consumo
 echo -ne "${cor[5]}"
 read -p " ¡Enter, para volver!"
 Call.UserS
