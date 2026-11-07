@@ -5320,63 +5320,330 @@ function addnewd() {
 
 
 fun_openssh() {
-		clear
-		header
-		menu_item "AGREGAR NUEVO PUERTO SSH" "REMOVER PUERTO OPENSSH"
-		echo -ne "\033[1;32mOPCION \033[1;33m:\033[1;37m "
-		read resp
-		if [[ "$resp" = '1' ]]; then
-			clear
-			echo -e "         ADICIONAR PUERTO OPENSSH         "
-			echo -ne " \033[1;32mQUE PUERTO DESEAS AÑADIR \033[1;33m?\033[1;37m "
-			read pt
-			[[ -z "$pt" ]] && {
-				echo -e "\n\033[1;31mPUERTO INVALIDO!"
-				sleep 1
-				return 0
-			}
-			verif_ptrs $pt
-			echo -e "\n\033[1;32mAÑADIENDO PUERTO A OPENSSH\033[0m"
-			echo ""
-			fun_addpssh() {
-				echo "Port $pt" >>/etc/ssh/sshd_config
-				service ssh restart
-			}
-			fun_bar 'fun_addpssh'
-			echo -e "\n\033[1;32mPUERTO ADICIONADO CON EXITO\033[0m"
-			sleep 3
-			return 0
-		elif [[ "$resp" = '2' ]]; then
-			clear
-			echo -e "\E[41;1;37m         ELIMINAR PUERTO OPENSSH         \E[0m"
-			echo -e "\n\033[1;33m[\033[1;31m!\033[1;33m] \033[1;32mPUERTO DETENIDO \033[1;37m22 \033[1;33mCUIDADO !\033[0m"
-			echo -e "\n\033[1;33mPUERTAS SSH EN USO: \033[1;37m$(grep 'Port' /etc/ssh/sshd_config | cut -d' ' -f2 | grep -v 'no' | xargs)\n"
-			echo -ne "\033[1;32mQUE PUERTO DESEAS REMOVER \033[1;33m?\033[1;37m "
-			read pt
-			[[ -z "$pt" ]] && {
-				echo -e "\n\033[1;31mPUERTO INVALIDO!"
-				sleep 2
-				return 0
-			}
-			[[ $(grep -wc "$pt" '/etc/ssh/sshd_config') != '0' ]] && {
-				echo -e "\n\033[1;32mREMOVENDO PUERTO DE SSH\033[0m"
-				echo ""
-				fun_delpssh() {
-					sed -i "/Port $pt/d" /etc/ssh/sshd_config
-					service ssh restart
-				}
-				fun_bar 'fun_delpssh'
-				echo -e "\n\033[1;32mPORTA REMOVIDA COM SUCESSO\033[0m"
-				sleep 2
-				return 0
-			} || {
-				echo -e "\n\033[1;31mPorta invalida!"
-				sleep 2
-				return 0
-			}
-		elif [[ "$resp" = '0' ]]; then
-			return
-		fi
+clear
+header
+msg -bar3
+echo -e "${cor[2]}MENU BANNER λ (RECOMENDADO 2):"
+msg -bar3
+echo -e "\033[0;35m [\033[0;36m01\033[0;35m]\033[0;31m >${cor[3]} Pegar BANNER Personalizado ( html , etc )"
+echo -e "\033[0;35m [\033[0;36m02\033[0;35m]\033[0;31m >${cor[3]} AGREGAR MENSAJES BANNER SSH"
+echo -e "\033[0;35m [\033[0;36m03\033[0;35m]\033[0;31m >${cor[3]} ELIMINAR BANNER ( SSH ⇿ DROPBEAR )"
+echo -e "\033[0;35m [\033[0;36m04\033[0;35m]\033[0;31m >${cor[3]} CheckUser + BANNER \033[0;31m[ $(msg -verm2 'NUEVO') \033[0;31m]"
+echo -e "\033[0;35m [\033[0;36m05\033[0;35m]\033[0;31m >${cor[3]} INSTALAR OPENSSH MOD ( UBUNTU 18 / 20 )"
+echo -e "\033[0;35m [\033[0;36m06\033[0;35m]\033[0;33m ${flech}${cor[3]} AGREGAR NUEVO PUERTO SSH"
+echo -e "\033[0;35m [\033[0;36m07\033[0;35m]\033[0;33m ${flech}${cor[3]} REMOVER PUERTO OPENSSH"
+msg -bar3
+echo -e " \033[0;35m [\033[0;36m0\033[0;35m]\033[0;31m > $(msg -bra "\033[1;41m[ REGRESAR ]\e[0m")"
+msg -bar3
+local resp sshsn sin_nao pt opc _size ban_ner ban_ner_cor x _col credit credi men
+echo -ne "\033[1;37m ► Opcion : "
+read resp
+resp=${resp#0}
+case "$resp" in
+1)
+echo -e " Al escojer que coloques tu Banner creado fuera del Script, ADM no se "
+echo -e "   Responsabiliza por el Fallo de ciertos recursos del SISTEMA"
+echo -e "RECUERDA QUE EL SCRIPT ESTA REALIZADO PARA FUNCIONAR CON SUS FUNCIONES"
+echo -e "                Y esta es EXPERIMENTAL"
+echo -e "Esta SEGURO QUE DESEAS CONTINUAR ?:"
+read -p " [S/N]: " -e -i n sshsn
+[[ "$sshsn" = @(s|S|y|Y) ]] && {
+  [[ -z "$(grep -v "#Banner" /etc/ssh/sshd_config | grep Banner)" ]] && echo "Banner /etc/bannerssh" >> /etc/ssh/sshd_config
+  echo -e " ESTRUCTURA BANNER CUSTOM AÑADIDA, ACEPTAS CONTINUAR?"
+  read -p " [ s | n ]: " sin_nao
+  # ban_per termina con 'exit', se corre en subshell para no cerrar el menu
+  [[ "$sin_nao" = @(s|S|y|Y) ]] && ( ban_per )
+}
+return 0
+;;
+2)
+echo -e "${cor[3]} Buena ELECCION, Tienes un 99% mas Garantia"
+echo -e "${cor[3]} Esta SEGURO:"
+read -p " [S/N]: " -e -i s sshsn
+[[ "$sshsn" = @(s|S|y|Y) ]] || return 0
+> /etc/bannerssh
+[[ -z "$(grep -v "#Banner" /etc/ssh/sshd_config | grep Banner)" ]] && echo "Banner /etc/bannerssh" >> /etc/ssh/sshd_config
+msg -bar3
+echo -e "\n\033[1;31m[\033[1;36m01\033[1;31m]\033[1;33m Letra Pequeña"
+echo -e "\033[1;31m[\033[1;36m02\033[1;31m]\033[1;33m Letra Media"
+echo -e "\033[1;31m[\033[1;36m03\033[1;31m]\033[1;33m Letra Grande"
+echo -e "\033[1;31m[\033[1;36m04\033[1;31m]\033[1;33m Letra ExtraGrande"
+echo ""
+echo -ne "\033[1;32mEscoje el Tamaño de Letra\033[1;31m ?\033[1;37m : "; read opc
+case ${opc#0} in 2) _size='4';; 3) _size='3';; 4) _size='1';; *) _size='6';; esac
+msg -bar3
+echo -ne "\033[1;37m"
+read -p " INGRESA TU MENSAJE : " ban_ner
+msg -bar3
+echo -e " \033[1;31m[ 1 ]\033[1;33m > VERDE         \033[1;31m[ 9  ]\033[1;33m > AZUL PIZARRA OSCURO"
+echo -e " \033[1;31m[ 2 ]\033[1;33m > ROJO          \033[1;31m[ 10 ]\033[1;33m > MAGENTA"
+echo -e " \033[1;31m[ 3 ]\033[1;33m > AZUL          \033[1;31m[ 11 ]\033[1;33m > CHOCOLATE"
+echo -e " \033[1;31m[ 4 ]\033[1;33m > AMARILLO      \033[1;31m[ 12 ]\033[1;33m > VERDE CLARO"
+echo -e " \033[1;31m[ 5 ]\033[1;33m > PURPURA       \033[1;31m[ 13 ]\033[1;33m > GRIS"
+echo -e " \033[1;31m[ 6 ]\033[1;33m > Naranja       \033[1;31m[ 14 ]\033[1;33m > VERDE MAR"
+echo -e " \033[1;31m[ 7 ]\033[1;33m > Crema         \033[1;31m[ 15 ]\033[1;33m > CIAN OSCURO"
+echo -e " \033[1;31m[ 8 ]\033[1;33m > Cyano         \033[1;31m[ * ]\033[1;33m > Negro"
+read -p " [ 1 ⇿ 15 ]: " ban_ner_cor
+case "$ban_ner_cor" in
+1) _col="green";; 2) _col="red";; 3) _col="blue";; 4) _col="yellow";; 5) _col="purple";;
+6) _col="#FF7F00";; 7) _col="#AEB404";; 8) _col="cyan";; 9) _col="#483D8B";; 10) _col="#FF00FF";;
+11) _col="#D2691E";; 12) _col="#90EE90";; 13) _col="#BEBEBE";; 14) _col="#2E8B57";; 15) _col="#008B8B";;
+*) _col="black";;
+esac
+echo -e "\033[1;42m Deseas centrar el contenido del banner\033[0;33m  :v"
+echo ""
+echo -ne "\033[0;32m Responde [ s | n ] : " && read -e -i "s" x
+msg -bar3
+[[ "$x" = @(s|S|y|Y) ]] && echo -e '<p style="text-align: center;">' > /etc/bannerssh
+echo '<h'$_size' style="text-align:center;"><font color="'$_col'">' >> /etc/bannerssh
+echo "$ban_ner" >> /etc/bannerssh
+echo '</font></h'$_size'>' >> /etc/bannerssh
+[[ "$x" = @(s|S|y|Y) ]] && echo "</p>" >> /etc/bannerssh
+while true; do
+  echo -e " DESEAS AÑADIR MAS TEXTOS A TU BANNER?"
+  read -p " [ s | n ]: " sin_nao
+  if [[ "$sin_nao" = @(s|S|y|Y) ]]; then
+    txt_font
+  elif [[ "$sin_nao" = @(n|N) ]]; then
+    break
+  fi
+done
+credit="Karl199x"
+[[ -s /etc/adm-lite/menu_credito ]] && credit=$(head -1 /etc/adm-lite/menu_credito)
+[[ -z "$credit" && -s /bin/ejecutar/menu_credito ]] && credit=$(head -1 /bin/ejecutar/menu_credito)
+credi="ChumoGH"
+[[ -s /root/name ]] && credi=$(head -1 /root/name)
+echo -e '<p style="text-align: center;"><strong><span style="color: #FF00FF;">'"$credit"'</span> |&nbsp;</strong><span style="color: #483D8B;"><strong>'"$credi"' λ</strong></span></p>' >> /etc/bannerssh
+[[ -d /etc/dropbear ]] && cat /etc/bannerssh > /etc/dropbear/banner || men="NO EXISTE DROPBEAR"
+msg -bar3
+echo -ne " \033[1;31m[ ! ] VERIFICANDO DROPBEAR "
+service dropbear restart > /dev/null 2>&1
+[[ -e /etc/init.d/dropbear ]] && {
+  /etc/init.d/dropbear restart > /dev/null 2>&1 && echo -e "\033[1;32m [OK]" || {
+    echo -e "\033[1;31m ▢ BANNER INCOMPATIBLE CON DROPBEAR -\n" && echo "DESTRUYENDO DISEÑO"
+    echo "" > /etc/dropbear/banner
+    /etc/init.d/dropbear restart > /dev/null 2>&1 && echo -e "\033[1;32m [OK]"
+  }
+} || echo -e "\033[0;35m [ $men ]"
+echo -ne " \033[1;31m[ ! ] VERIFICANDO SSH "
+service ssh restart > /dev/null 2>&1
+service sshd restart > /dev/null 2>&1
+[[ -e /etc/init.d/ssh ]] && /etc/init.d/ssh restart > /dev/null 2>&1 && echo -e "\033[1;32m [OK]" || echo -e "\033[1;31m [FAIL]"
+return 0
+;;
+3)
+msg -bar3
+msg -ama " ELIMINANDO BANNERS (SSH & DROPBEAR)"
+msg -bar3
+if grep -q -E "^[ ]*Banner" /etc/ssh/sshd_config; then
+  sed -i -E 's/^[ ]*Banner/#Banner/' /etc/ssh/sshd_config
+  msg -verd "Banner desactivado en sshd_config"
+else
+  msg -azu "Banner ya estaba desactivado en sshd_config"
+fi
+[[ -e /etc/bannerssh ]] && { echo "" > /etc/bannerssh; msg -verd "Archivo /etc/bannerssh limpiado"; } || msg -azu "No existía /etc/bannerssh"
+[[ -e /etc/dropbear/banner ]] && { echo "" > /etc/dropbear/banner; msg -verd "Archivo /etc/dropbear/banner limpiado"; } || msg -azu "No existía /etc/dropbear/banner"
+msg -bar3
+msg -ama "Reiniciando servicios..."
+systemctl restart ssh &>/dev/null
+systemctl restart sshd &>/dev/null
+systemctl restart dropbear &>/dev/null
+msg -verd "Servicios reiniciados."
+msg -bar3
+return 0
+;;
+4)
+clear&&clear
+msg -bar3
+print_center -verm2 ' BANNER + CHECKUSER CUSTOM \nESTA OPCIÓN COMBINA EL BANNER DE SSH/DROPBEAR (SI EXISTE).\nFUNCIÓN: MUESTRA UN BANNER CON EL USUARIO Y FECHA DE EXPIRACIÓN.\n'
+print_center -azu ' ⚠️ REQUISITOS DE COMPATIBILIDAD ⚠️'
+print_center -azu ' 🔹 Nativo: Solo funciona en Ubuntu 22+ y Debian 11+.'
+print_center -ama ' 🔸 Ubuntu 18/20: REQUIERE INSTALAR OPENSSH MOD (OPCIÓN 05).'
+print_center -azu ' 🔹 Requiere que el puerto SSH (22 o personalizado) esté activo.'
+msg -bar3
+print_center -verm2 ' ¡CUIDADO CON BANNERS MAL ESTRUCTURADOS, PUEDE FALLAR!'
+print_center -verm2 '  ESTA FUNCIÓN PUEDE OCUPAR MÁS RECURSOS DEL SISTEMA.'
+_checkbanner_sh
+return 0
+;;
+5)
+_openssh_mod
+return 0
+;;
+6)
+clear
+echo -e "         ADICIONAR PUERTO OPENSSH         "
+echo -ne " \033[1;32mQUE PUERTO DESEAS AÑADIR \033[1;33m?\033[1;37m "
+read pt
+[[ -z "$pt" ]] && {
+  echo -e "\n\033[1;31mPUERTO INVALIDO!"
+  sleep 1
+  return 0
+}
+verif_ptrs $pt
+echo -e "\n\033[1;32mAÑADIENDO PUERTO A OPENSSH\033[0m"
+echo ""
+fun_addpssh() {
+  echo "Port $pt" >>/etc/ssh/sshd_config
+  service ssh restart
+}
+fun_bar 'fun_addpssh'
+echo -e "\n\033[1;32mPUERTO ADICIONADO CON EXITO\033[0m"
+sleep 3
+return 0
+;;
+7)
+clear
+echo -e "\E[41;1;37m         ELIMINAR PUERTO OPENSSH         \E[0m"
+echo -e "\n\033[1;33m[\033[1;31m!\033[1;33m] \033[1;32mPUERTO DETENIDO \033[1;37m22 \033[1;33mCUIDADO !\033[0m"
+echo -e "\n\033[1;33mPUERTAS SSH EN USO: \033[1;37m$(grep 'Port' /etc/ssh/sshd_config | cut -d' ' -f2 | grep -v 'no' | xargs)\n"
+echo -ne "\033[1;32mQUE PUERTO DESEAS REMOVER \033[1;33m?\033[1;37m "
+read pt
+[[ -z "$pt" ]] && {
+  echo -e "\n\033[1;31mPUERTO INVALIDO!"
+  sleep 2
+  return 0
+}
+[[ $(grep -wc "$pt" '/etc/ssh/sshd_config') != '0' ]] && {
+  echo -e "\n\033[1;32mREMOVENDO PUERTO DE SSH\033[0m"
+  echo ""
+  fun_delpssh() {
+    sed -i "/Port $pt/d" /etc/ssh/sshd_config
+    service ssh restart
+  }
+  fun_bar 'fun_delpssh'
+  echo -e "\n\033[1;32mPORTA REMOVIDA COM SUCESSO\033[0m"
+  sleep 2
+  return 0
+} || {
+  echo -e "\n\033[1;31mPorta invalida!"
+  sleep 2
+  return 0
+}
+;;
+*)
+return 0
+;;
+esac
+}
+
+# CheckUser + BANNER usando plugins/banner.sh (sin ofuscar) del repo ChumoGH
+_checkbanner_sh () {
+local _cb_dir="/etc/ADMcgh/bin"
+local _cb_sh="${_cb_dir}/banner.sh"
+local _cb_url="https://raw.githubusercontent.com/karl1999x/ChumoGH/refs/heads/main/plugins/banner.sh"
+msg -bar3
+local _pic
+[[ $(grep -c "^#ChumoGH CheckBannerSH" /etc/pam.d/sshd) -eq 0 ]] && _pic="\e[32m ACTIVAR" || _pic="\e[31mAPAGAR"
+print_center '\e[97m\033[1;41m MENUS DE CONTROL CHECKBANNER\033[0m'
+menu_item " ${_pic} CheckBannerSSH (para HTTP Custom)"
+local selection=$(selection_fun 1)
+case ${selection} in
+1)
+mkdir -p "${_cb_dir}"
+if [[ $(grep -c "^#ChumoGH CheckBannerSH" /etc/pam.d/sshd) -eq 0 ]]; then
+  print_center -ama " Descargando banner.sh...."
+  if [[ -f "${SCRIPT_DIR}/plugins/banner.sh" ]]; then
+    cp -f "${SCRIPT_DIR}/plugins/banner.sh" "${_cb_sh}"
+  else
+    wget -q --no-check-certificate -t3 -T5 -O "${_cb_sh}" "${_cb_url}" 2>/dev/null || curl -fsSL "${_cb_url}" -o "${_cb_sh}" 2>/dev/null
+  fi
+  if [[ -s "${_cb_sh}" ]] && head -c 300 "${_cb_sh}" | grep -q "bash"; then
+    chmod +x "${_cb_sh}"
+    msg -verd "banner.sh descargado [OK]"
+  else
+    rm -f "${_cb_sh}"
+    msg -verm2 "[FAIL] No se pudo descargar banner.sh"
+    return 0
+  fi
+  # Quitar cualquier CheckBanner anterior (binario viejo) para no duplicar
+  sed -i '/^#ChumoGH CheckBanner/,/# Fin de Compilacion Barred/d' /etc/pam.d/sshd
+  sed -i '/^#PandaHL001 CheckBanner/,/# Fin de Compilacion Barred/d' /etc/pam.d/sshd
+  rm -f "${DEST}/out.bin" "${_cb_dir}/banner.bin"
+  cat >> /etc/pam.d/sshd << EOF
+#ChumoGH CheckBannerSH
+auth required pam_unix.so
+auth optional pam_exec.so /bin/bash ${_cb_sh}
+auth optional pam_echo.so file=${_cb_dir}/banner.txt
+# Fin de Compilacion Barred
+EOF
+  grep -q "^Banner" /etc/ssh/sshd_config && sed -i 's/^Banner/#Banner/' /etc/ssh/sshd_config
+  # banner.sh exige estos archivos de control (vienen del instalador de Panda)
+  [[ -f /etc/adm-lite/v-local.log ]] || echo "1" > /etc/adm-lite/v-local.log
+  [[ -f /etc/adm-lite/local.txt ]] || cp -f /etc/adm-lite/v-local.log /etc/adm-lite/local.txt
+  # El banner de PAM solo llega al cliente con keyboard-interactive activo
+  for _sc in /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf; do
+    [[ -f "$_sc" ]] || continue
+    sed -i -E 's/^[# ]*(KbdInteractiveAuthentication|ChallengeResponseAuthentication)[[:space:]]+no/\1 yes/' "$_sc"
+  done
+  grep -qE "^(KbdInteractiveAuthentication|ChallengeResponseAuthentication)[[:space:]]+yes" /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf 2>/dev/null || echo "KbdInteractiveAuthentication yes" >> /etc/ssh/sshd_config
+  grep -q "^UsePAM yes" /etc/ssh/sshd_config || { sed -i '/^[# ]*UsePAM/d' /etc/ssh/sshd_config; echo "UsePAM yes" >> /etc/ssh/sshd_config; }
+  msg -verd " CHECKBANNER ACTIVADO"
+else
+  sed -i '/^#ChumoGH CheckBannerSH/,/# Fin de Compilacion Barred/d' /etc/pam.d/sshd
+  rm -f "${_cb_sh}"
+  msg -ama " CHECKBANNER DESACTIVADO"
+fi
+service ssh restart &>/dev/null || systemctl restart ssh &>/dev/null
+echo -e " SERVICIO COMPLETADO !!"
+;;
+*) return 0 ;;
+esac
+}
+
+# INSTALAR OPENSSH MOD (Ubuntu 18/20) - portado de PandaScript
+_openssh_mod () {
+local LOG_ERROR="/root/error_install.log"
+local _here=$(pwd)
+clear
+msg -bar3
+print_center -ama "INSTALADOR OPENSSH MOD"
+msg -bar3
+msg -ama "[+] Detectando Sistema: Ubuntu $(lsb_release -rs 2>/dev/null)"
+echo -ne "$(msg -azu "[+] Instalando dependencias...")"
+apt update &> /dev/null
+apt install -y build-essential zlib1g-dev libssl-dev libpam0g-dev libselinux1-dev wget &>> $LOG_ERROR
+msg -verd " [OK]"
+echo -ne "$(msg -azu "[+] Descargando OpenSSH 9.8p1...")"
+cd /root
+wget -c https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-9.8p1.tar.gz &>> $LOG_ERROR
+tar -xzf openssh-9.8p1.tar.gz &>> $LOG_ERROR
+cd openssh-9.8p1 || { msg -verm2 " [ERROR] revisa $LOG_ERROR"; cd "$_here"; return 1; }
+sed -i 's/#define SSH_VERSION.*/#define SSH_VERSION "OpenSSH-MOD-ChumoGH"/' version.h
+sed -i 's/#define SSH_RELEASE.*/#define SSH_RELEASE "OpenSSH-MOD-ChumoGH"/' version.h
+msg -verd " [OK]"
+echo -ne "$(msg -azu "[+] Compilando (puede tardar)...")"
+./configure --with-pam --with-selinux --with-md5-passwords &>> $LOG_ERROR
+make -j$(nproc) &>> $LOG_ERROR
+if ! make install &>> $LOG_ERROR; then
+  msg -verm2 " [ERROR]"
+  msg -ama "Revisa $LOG_ERROR"
+  cd /root && rm -rf openssh-9.8p1*
+  cd "$_here"
+  return 1
+fi
+msg -verd " [OK]"
+echo -ne "$(msg -azu "[+] Optimizando para CheckUser...")"
+[[ -f /etc/ssh/sshd_config ]] && cp /etc/ssh/sshd_config /usr/local/etc/sshd_config
+sed -i '/MaxStartups/d;/MaxSessions/d;/LoginGraceTime/d' /usr/local/etc/sshd_config
+echo "MaxStartups 100:30:200" >> /usr/local/etc/sshd_config
+echo "MaxSessions 100" >> /usr/local/etc/sshd_config
+echo "LoginGraceTime 120" >> /usr/local/etc/sshd_config
+msg -verd " [OK]"
+echo -ne "$(msg -azu "[+] Reiniciando SSH...")"
+if [[ -f /lib/systemd/system/ssh.service ]]; then
+  sed -i 's|ExecStart=.*|ExecStart=/usr/local/sbin/sshd -D $SSHD_OPTS|' /lib/systemd/system/ssh.service
+  systemctl daemon-reload &> /dev/null
+  systemctl restart ssh &> /dev/null
+fi
+msg -verd " [OK]"
+echo -ne "$(msg -azu "[+] Eliminando archivos temporales...")"
+cd /root && rm -rf openssh-9.8p1*
+cd "$_here"
+msg -verd " [OK]"
+msg -bar3
+print_center -verd "INSTALACION COMPLETADA EXITOSAMENTE"
+msg -bar3
 }
 
 function del_drop_ports() {
